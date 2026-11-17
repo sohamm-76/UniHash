@@ -1,0 +1,17 @@
+# Compiled C++ executables and object files
+hash_student
+*.exe
+*.out
+*.o
+*.obj
+*.dSYM/
+
+# Editor and IDE folders
+.vscode/
+.idea/
+
+# Temporary or backup files
+students_backup.txt
+*~
+.DS_Store
+Thumbs.db
