@@ -5,6 +5,8 @@
 #include <vector>
 #include <algorithm>
 #include <iomanip>
+#include <limits>
+#include <cstdlib>
 using namespace std;
 
 struct Node {
@@ -30,7 +32,7 @@ private:
     string fileName;
 
     int hashFunction(int key) const {
-        return key % TABLE_SIZE;
+        return (key % TABLE_SIZE + TABLE_SIZE) % TABLE_SIZE;
     }
 
     void header() const {
@@ -69,6 +71,7 @@ public:
                 delete cur;
                 cur = nxt;
             }
+            table[i] = NULL;
         }
     }
 
@@ -129,12 +132,22 @@ public:
         return true;
     }
 
+    bool isEmpty() const {
+        for (int i = 0; i < TABLE_SIZE; i++)
+            if (table[i] != NULL) return false;
+        return true;
+    }
+
     void printOne(const Node* n) const {
         header();
         printRow(n, hashFunction(n->id));
     }
 
     void display(int mode) const {
+        if (isEmpty()) {
+            cout << "Hash table is empty.\n";
+            return;
+        }
         if (mode == 1) {
             header();
             for (int i = 0; i < TABLE_SIZE; i++)
@@ -174,14 +187,16 @@ public:
         }
     }
 
-    void save() const {
+    bool save() const {
         ofstream out(fileName.c_str());
+        if (!out) return false;
         for (int i = 0; i < TABLE_SIZE; i++) {
             for (Node* cur = table[i]; cur != NULL; cur = cur->next) {
                 out << cur->id << '|' << cur->name << '|'
                     << cur->cgpa << '|' << cur->attendance << '\n';
             }
         }
+        return true;
     }
 
     int load() {
@@ -205,11 +220,40 @@ public:
     }
 };
 
+int readInt(const string& prompt) {
+    int v;
+    while (true) {
+        cout << prompt;
+        if (cin >> v) {
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            return v;
+        }
+        if (cin.eof()) exit(0);
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        cout << "Invalid input. Please enter a number.\n";
+    }
+}
+
+double readDouble(const string& prompt) {
+    double v;
+    while (true) {
+        cout << prompt;
+        if (cin >> v) {
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            return v;
+        }
+        if (cin.eof()) exit(0);
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        cout << "Invalid input. Please enter a number.\n";
+    }
+}
+
 int main() {
     StudentHashTable records("students.txt");
     cout << records.load() << " record(s) loaded from students.txt\n";
 
-    int choice;
     while (true) {
         cout << "\n===== HASH TABLE STUDENT RECORD SYSTEM =====\n"
              << "1. Insert Student\n"
@@ -217,36 +261,40 @@ int main() {
              << "3. Display Students (Bucket-wise / Sorted / Chain Summary)\n"
              << "4. Update CGPA\n"
              << "5. Delete Student\n"
-             << "6. Exit\n"
-             << "Enter your choice: ";
-        cin >> choice;
+             << "6. Exit\n";
+
+        int choice = readInt("Enter your choice: ");
 
         if (choice == 1) {
-            int id, att;
-            string name;
-            double cgpa;
-            cout << "Enter student ID: ";
-            cin >> id;
+            int id = readInt("Enter student ID: ");
             if (records.search(id) != NULL) {
                 cout << "Student ID already exists. Insertion cancelled.\n";
                 continue;
             }
-            cin.ignore();
+            string name;
             cout << "Enter student name: ";
             getline(cin, name);
-            cout << "Enter CGPA: ";
-            cin >> cgpa;
-            cout << "Enter attendance (%): ";
-            cin >> att;
+            while (name.empty() || name.find('|') != string::npos) {
+                cout << "Name must be non-empty and must not contain '|'. Enter again: ";
+                getline(cin, name);
+            }
+            double cgpa = readDouble("Enter CGPA: ");
+            if (cgpa < 0.0 || cgpa > 10.0) {
+                cout << "Invalid CGPA! Enter between 0 and 10.\n";
+                continue;
+            }
+            int att = readInt("Enter attendance (%): ");
+            if (att < 0 || att > 100) {
+                cout << "Invalid Attendance! Enter between 0 and 100.\n";
+                continue;
+            }
 
             records.insert(id, name, cgpa, att);
             records.save();
             cout << "Student added to bucket " << records.getBucket(id) << " successfully.\n";
 
         } else if (choice == 2) {
-            int id;
-            cout << "Enter student ID to search: ";
-            cin >> id;
+            int id = readInt("Enter student ID to search: ");
             Node* n = records.search(id);
             if (n != NULL) {
                 cout << "Student found.\n";
@@ -256,30 +304,31 @@ int main() {
             }
 
         } else if (choice == 3) {
-            int m;
-            cout << "1. Bucket-wise (0 to 6)\n2. Sorted by ID\n3. Chain Summary\nSelect display mode: ";
-            cin >> m;
+            cout << "1. Bucket-wise (0 to 6)\n2. Sorted by ID\n3. Chain Summary\n";
+            int m = readInt("Select display mode: ");
+            if (m < 1 || m > 3) {
+                cout << "Invalid display mode.\n";
+                continue;
+            }
             records.display(m);
 
         } else if (choice == 4) {
-            int id;
-            double cgpa;
-            cout << "Enter student ID: ";
-            cin >> id;
+            int id = readInt("Enter student ID: ");
             if (records.search(id) == NULL) {
                 cout << "Student with ID " << id << " not found.\n";
                 continue;
             }
-            cout << "Enter new CGPA: ";
-            cin >> cgpa;
+            double cgpa = readDouble("Enter new CGPA: ");
+            if (cgpa < 0.0 || cgpa > 10.0) {
+                cout << "Invalid CGPA! Enter between 0 and 10.\n";
+                continue;
+            }
             records.updateCGPA(id, cgpa);
             records.save();
             cout << "CGPA updated successfully.\n";
 
         } else if (choice == 5) {
-            int id;
-            cout << "Enter student ID to delete: ";
-            cin >> id;
+            int id = readInt("Enter student ID to delete: ");
             if (records.remove(id)) {
                 records.save();
                 cout << "Student deleted successfully.\n";
@@ -288,8 +337,10 @@ int main() {
             }
 
         } else if (choice == 6) {
-            records.save();
-            cout << "Records saved to students.txt\n";
+            if (records.save())
+                cout << "Records saved to students.txt\n";
+            else
+                cout << "Warning: could not save records.\n";
             cout << "Memory released. Exiting program.\n";
             break;
 
